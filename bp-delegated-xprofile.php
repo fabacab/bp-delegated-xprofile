@@ -62,9 +62,13 @@ class BP_Delegated_XProfile {
 
         add_action( 'plugins_loaded', array( __CLASS__, 'registerL10n' ) );
 
-        add_action( 'bp_members_admin_user_metaboxes', array( __CLASS__, 'xprofile_metaboxes' ), 10, 2 );
+        add_action( 'admin_menu', array( __CLASS__, 'admin_menu' ) );
+        add_action( 'bp_members_admin_user_metaboxes', array( __CLASS__, 'bp_members_admin_user_metaboxes' ), 10, 2 );
         add_action( 'bp_members_admin_update_user', array( __CLASS__, 'bp_members_admin_update_user' ), 10, 4 );
         //add_action( 'xprofile_field_after_sidebarbox', array( __CLASS__, 'xprofile_field_delegate_metabox' ) );
+
+        add_filter( 'user_has_cap', array( __CLASS__, 'user_has_cap' ), 5, 4 ); // priority 5 so other plugins can override
+        add_filter( 'bp_current_user_can', array( __CLASS__, 'bp_current_user_can' ), 10, 4 );
 
         register_activation_hook( __FILE__, array( __CLASS__, 'activate' ) );
         register_deactivation_hook( __FILE__, array( __CLASS__, 'deactivate' ) );
@@ -184,29 +188,123 @@ class BP_Delegated_XProfile {
     }
 
     /**
-     * Registers the XProfile metaboxes.
+     * Filters a user capability.
+     *
+     * Used for adding the `edit_user_delegates` capability to all
+     * users granted the `edit_users` capability, by default. This
+     * method runs very early when hooked, so by default other plugins
+     * that want to hook the `user_has_cap` filter and use the default
+     * priority of 10 will automatically override this setting.
+     *
+     * @param array $allcaps
+     * @param array $caps
+     * @param array $args
+     * @param WP_User $user
+     *
+     * return array
+     */
+    public static function user_has_cap ( $allcaps, $caps, $args, $user ) {
+        // If you can `edit_users` you can `edit_user_delegates`, too.
+        if ( isset( $allcaps['edit_users'] ) ) {
+            $allcaps['edit_user_delegates'] = true;
+        }
+
+        return $allcaps;
+    }
+
+    /**
+     * Filters the BuddyPress capability checks.
+     *
+     * Used for allowing delegates to edit their charge's XProfile.
+     *
+     * @param bool   $retval
+     * @param string $capability
+     * @param int    $blog_id
+     * @param array  $args
+     *
+     * @return bool
+     */
+    public static function bp_current_user_can ( $retval, $capability, $blog_id, $args ) {
+        // BuddyPress XProfile edit relies on the `bp_moderate`
+        // capability. There are code comments in BuddyPress that say
+        // this might become more granular later on but for now that
+        // is the one and only capability BuddyPress actually checks.
+        if ( 'bp_moderate' === $capability
+            && isset( $_GET['page'] ) && 'bp-profile-edit' === $_GET['page']
+            && isset( $_GET['user_id'] )
+        ) {
+            $delegates = bp_get_user_meta( (int) $_GET['user_id'], self::prefix . 'user_delegate' );
+            if ( in_array( get_current_user_id(), $delegates ) ) {
+                // Current user is a delegate for the given user, so
+                // should be granted permission to edit the profile.
+                return true;
+            }
+        }
+
+        return $retval;
+    }
+
+    /**
+     * Whether or not a given user is the delegate of other users.
+     *
+     * @param WP_User|int $user
+     *
+     * @return bool
+     */
+    public static function user_is_delegate ( $user ) {
+        $id = ( is_int( $user ) ) ? absint( $user ) : $user->ID;
+        $q = new WP_User_Query( array(
+            'meta_key' => self::prefix . 'user_delegate',
+            'meta_value' => $id
+        ) );
+        return ! empty( $q->get_results() );
+    }
+
+    /**
+     * Adds the Delegated Profiles menu item to the WP Dashboard admin menu.
+     *
+     * @link https://developer.wordpress.org/reference/hooks/admin_menu/
+     */
+    public static function admin_menu () {
+        if ( ! self::user_is_delegate( get_current_user_id() ) ) {
+            return; // bail if this user is not a delegate
+        }
+        add_submenu_page(
+            'profile.php',
+            __( 'Delegated Profiles' , 'bp-delegated-xprofile'),
+            __( 'Delegated Profiles' , 'bp-delegated-xprofile'),
+            'read', // WordPress users with `subscriber` role can be delegates.
+            self::prefix . 'delegated-profiles',
+            array( __CLASS__, 'renderEditDelegatedProfiles' )
+        );
+    }
+
+    /**
+     * Registers the Delegation metaboxes on an XProfile edit screen.
      *
      * @param bool $is_self_profile Whether or not the loaded profile is for the current user.
      * @param WP_User $wp_user
      */
-    public static function xprofile_metaboxes ( $is_self_profile, $wp_user ) {
+    public static function bp_members_admin_user_metaboxes ( $is_self_profile, $wp_user ) {
         if ( ! bp_is_active( 'xprofile' ) ) {
             return; // Bail if Extended Profile component is not active.
         }
         
-        if ( false !== $is_self_profile ) {
-            return; // Restrict Delegate options only to oneself and site admins.
+        // The meta box will enumerate users, which is sensitive and should only be permitted
+        // to users with the `list_users` capability. Similarly, it implies that a user might
+        // edit the properties associated with a user, so we check the `edit_user_delegates`
+        // capability before registering the metabox, as well.
+        if ( current_user_can( 'list_users' ) && current_user_can( 'edit_user_delegates' ) )  {
+            add_meta_box(
+                self::prefix . 'admin_user_delegate',
+                _x('Delegation', 'members user-admin edit screen', 'bp-delegated-xprofile'),
+                array( __CLASS__, 'renderDelegationMetabox' ),
+                get_current_screen()->id,
+                'side',
+                'default',
+                array( $wp_user )
+            );
         }
-
-        add_meta_box(
-            self::prefix . 'admin_user_delegate',
-            _x('Delegation', 'members user-admin edit screen', 'bp-delegated-xprofile'),
-            array( __CLASS__, 'renderDelegationMetabox' ),
-            get_current_screen()->id,
-            'side',
-            'default',
-            array( $wp_user )
-        );
     }
 
     /**
@@ -249,7 +347,27 @@ class BP_Delegated_XProfile {
         </select>
     </label>
 </p>
-<p class="description"><?php print esc_html( 'Delegates are other users that are allowed to modify certain Extended Profile fields belonging to this user.', 'bp-delegated-xprofile'); ?></p>
+<p class="description"><?php print esc_html( 'Delegates are other users that are allowed to modify Extended Profile fields belonging to this user.', 'bp-delegated-xprofile'); ?></p>
+<?php
+    }
+
+    /**
+     * Renders the Edit Delegated Profiles screen.
+     *
+     * @todo Visual display of this page should be nicer. Use a WP List Table?
+     */
+    public static function renderEditDelegatedProfiles () {
+        $delegates = array_map( 'get_userdata', bp_get_user_meta( get_current_user_id(), self::prefix . 'user_delegate' ) );
+?>
+<div id="delegated-profiles-page">
+    <h1 class="wp-heading-inline">Delegated Profiles</h1>
+    <hr class="wp-header-end" />
+    <ul>
+        <?php foreach ( $delegates as $d ) : ?>
+        <li><a href="<?php print esc_attr( admin_url( "users.php?page=bp-profile-edit&user_id={$d->ID}" ) ); ?>"><?php print esc_html( $d->display_name ); ?> (<?php print esc_html( $d->user_login ); ?>)</a></li>
+        <?php endforeach; ?>
+    </ul>
+</div>
 <?php
     }
 
@@ -262,6 +380,10 @@ class BP_Delegated_XProfile {
      * @param string $redirect Determined redirect url to send user to.
      */
     public static function bp_members_admin_update_user ( $doaction, $user_id, $req, $redirect ) {
+        if ( ! current_user_can( 'edit_user_delegates' ) ) {
+            return;
+        }
+
         // Get current delegates.
         $curr_delegates = bp_get_user_meta( $user_id, self::prefix . 'user_delegate' );
 
