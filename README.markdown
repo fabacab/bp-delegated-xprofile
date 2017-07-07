@@ -1,0 +1,7 @@
+# BP Delegated XProfile
+
+[![Download from WordPress.org](https://img.shields.io/wordpress/plugin/dt/bp-delegated-xprofile.svg)](https://wordpress.org/plugins/bp-delegated-xprofile/) [![Current release at WordPress.org](https://img.shields.io/wordpress/plugin/v/bp-delegated-xprofile.svg)](https://wordpress.org/plugins/bp-delegated-xprofile/) [![Required WordPress version](https://img.shields.io/wordpress/v/bp-delegated-xprofile.svg)](https://wordpress.org/plugins/bp-delegated-xprofile/developers/) [![BP Delegated XProfile is licensed GPL-3.0](https://img.shields.io/github/license/meitar/bp-delegated-xprofile.svg)](https://www.gnu.org/licenses/quick-guide-gplv3.en.html)
+
+A [BuddyPress](https://buddypress.org/) plugin that allows a user's Extended Profile field(s) to be delegated to another user or users. For intance, using this plugin on a BuddyPress-powered website for a small after-school program, the legal guardian(s) of a child enrolled in the program can set the values on the XProfile field storing that child's primary physician's name and phone number by logging into their own user account. The physician's information is still associated with the child's record, making it easy for staff to look up that child's enrollment records when required, but the child need not manage this aspect of their profile, themselves.
+
+The BP Delegated XProfile plugin uses [WordPress's built-in Roles and Capabilities](https://developer.wordpress.org/plugins/users/roles-and-capabilities/) features.
