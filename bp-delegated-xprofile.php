@@ -233,8 +233,7 @@ class BP_Delegated_XProfile {
             && isset( $_GET['page'] ) && 'bp-profile-edit' === $_GET['page']
             && isset( $_GET['user_id'] )
         ) {
-            $delegates = bp_get_user_meta( (int) $_GET['user_id'], self::prefix . 'user_delegate' );
-            if ( in_array( get_current_user_id(), $delegates ) ) {
+            if ( in_array( get_current_user_id(), self::delegates_for( (int) $_GET['user_id'] ) ) ) {
                 // Current user is a delegate for the given user, so
                 // should be granted permission to edit the profile.
                 return true;
@@ -258,6 +257,32 @@ class BP_Delegated_XProfile {
             'meta_value' => $id
         ) );
         return ! empty( $q->get_results() );
+    }
+
+    /**
+     * Gets delegates of the given user.
+     *
+     * @param int $user_id
+     *
+     * @return int[]
+     */
+    public static function delegates_for ( $user_id ) {
+        return bp_get_user_meta( $user_id, self::prefix . 'user_delegate' );
+    }
+
+    /**
+     * Gets the users the given user has been delegated to.
+     *
+     * @param int $user_id
+     *
+     * @return WP_User[]
+     */
+    public static function delegated_to ( $user_id ) {
+        $q = new WP_User_Query( array(
+            'meta_key' => self::prefix . 'user_delegate',
+            'meta_value' => $user_id
+        ) );
+        return $q->get_results();
     }
 
     /**
@@ -313,7 +338,7 @@ class BP_Delegated_XProfile {
      * @param WP_User $wp_user
      */
     public static function renderDelegationMetabox ( $wp_user ) {
-        $delegate_ids = bp_get_user_meta( $wp_user->ID, self::prefix . 'user_delegate' );
+        $delegate_ids = self::delegates_for( $wp_user->ID );
         $delegates = array_map( 'get_userdata', $delegate_ids );
 ?>
 <p>
@@ -321,16 +346,21 @@ class BP_Delegated_XProfile {
 </p>
 <?php if ( ! empty( $delegates ) ) : ?>
 <ul>
-    <?php foreach ( $delegates as $delegate ) : ?>
-    <li><label>
-        <input id="<?php print esc_attr( self::prefix . 'user_delegate-' . $delegate->ID ); ?>"
-            name="<?php print esc_attr( self::prefix . 'user_delegate' ); ?>[]"
-            value="<?php print esc_attr( $delegate->ID ); ?>"
-            type="checkbox"
-            checked="checked"
-        />
-        <?php print esc_html( $delegate->display_name ); ?> (<?php print esc_html( $delegate->user_login ); ?>)
-    </label></li>
+    <?php foreach ( $delegates as $d ) : ?>
+    <li>
+        <label>
+            <input id="<?php print esc_attr( self::prefix . 'user_delegate-' . $d->ID ); ?>"
+                name="<?php print esc_attr( self::prefix . 'user_delegate' ); ?>[]"
+                value="<?php print esc_attr( $d->ID ); ?>"
+                type="checkbox"
+                checked="checked"
+            />
+            <?php print esc_html( $d->display_name ); ?> (<?php print esc_html( $d->user_login ); ?>)
+        </label>
+        <a href="<?php print esc_attr( admin_url( "user-edit.php?user_id={$d->ID}" ) ); ?>"><?php esc_html_e( 'Profile', 'buddypress' ); ?></a>
+        |
+        <a style="vertical-align: middle;" href="<?php print esc_attr( admin_url( "users.php?page=bp-profile-edit&user_id={$d->ID}" ) ); ?>"><?php esc_html_e( 'Extended', 'buddypress' ); ?></a>
+    </li>
     <?php endforeach; ?>
 </ul>
 <?php endif; ?>
@@ -357,7 +387,7 @@ class BP_Delegated_XProfile {
      * @todo Visual display of this page should be nicer. Use a WP List Table?
      */
     public static function renderEditDelegatedProfiles () {
-        $delegates = array_map( 'get_userdata', bp_get_user_meta( get_current_user_id(), self::prefix . 'user_delegate' ) );
+        $delegates = self::delegated_to( get_current_user_id() );
 ?>
 <div id="delegated-profiles-page">
     <h1 class="wp-heading-inline">Delegated Profiles</h1>
@@ -385,7 +415,7 @@ class BP_Delegated_XProfile {
         }
 
         // Get current delegates.
-        $curr_delegates = bp_get_user_meta( $user_id, self::prefix . 'user_delegate' );
+        $curr_delegates = self::delegates_for( $user_id );
 
         // Find delegates to keep.
         $keep_delegates = array();
