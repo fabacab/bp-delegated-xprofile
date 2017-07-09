@@ -439,7 +439,7 @@ class BP_Delegated_XProfile {
             // and a delegate ID must be a valid WordPress user ID.
             $add = (int) $req[ self::prefix . 'add_delegate' ];
             if ( $add !== $user_id && ! in_array( $add, $curr_delegates ) && get_userdata( $add ) ) {
-                add_user_meta( $user_id, self::prefix . 'user_delegate', $req[ self::prefix . 'add_delegate' ] );
+                add_user_meta( $user_id, self::prefix . 'user_delegate', $add );
             }
         }
     }
