@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=TJLPJ
 Tags: BuddyPress, members, member type, administration, users, management, customization, extended profile
 Requires at least: WordPress 4.4 / BuddyPress 2.8
 Tested up to: 4.8
-Stable tag: 0.1
+Stable tag: 0.1.1
 License: GPL-3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -52,6 +52,9 @@ BP Delegated XProfile can also be installed manually by following these instruct
 The answer to the question.
 
 == Changelog ==
+
+= 0.1.1 =
+* Fix activation error on old versions of PHP.
 
 = 0.1 =
 * Initial public release.

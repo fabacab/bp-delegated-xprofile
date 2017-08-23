@@ -7,7 +7,7 @@
  * * Plugin Name: BP Delegated XProfile
  * * Plugin URI: https://github.com/meitar/bp-delegated-xprofile
  * * Description: Delegate administration of BuddyPress Extended Profile fields in one user's profile to another user.
- * * Version: 0.1
+ * * Version: 0.1.1
  * * Author: Meitar Moscovitz <meitarm+wordpress@gmail.com>
  * * Author URI: https://maymay.net/
  * * License: GPL-3.0
@@ -256,7 +256,8 @@ class BP_Delegated_XProfile {
             'meta_key' => self::prefix . 'user_delegate',
             'meta_value' => $id
         ) );
-        return ! empty( $q->get_results() );
+        $r = $q->get_results();
+        return ! empty( $r );
     }
 
     /**
